@@ -223,6 +223,36 @@ class PlaywrightSocialImageExtractor:
         except Exception as e:
             logger.error(f"⚠️ Erro ao fechar browser: {e}")
 
+    async def extract_viral_content(
+        self, 
+        query: str, 
+        platforms: List[str] = None,
+        max_items: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Extrai conteúdo viral (método compatível com viral_content_analyzer)
+        """
+        result = await self.extract_images_from_all_platforms(query, platforms, max_items)
+        
+        # Converte para formato esperado pelo viral_content_analyzer
+        viral_content = []
+        for img in result.get('all_images', []):
+            viral_content.append({
+                'platform': img.get('platform', 'unknown'),
+                'title': img.get('alt_text', 'Conteúdo viral'),
+                'image_url': img.get('url'),
+                'thumbnail_url': img.get('url'),
+                'viral_score': img.get('estimated_quality', 0.5),
+                'type': img.get('type', 'image'),
+                'metadata': img
+            })
+        
+        return {
+            'viral_content': viral_content,
+            'platforms_data': result.get('platforms_data', {}),
+            'total_content': len(viral_content)
+        }
+
     async def extract_images_from_all_platforms(
         self, 
         query: str, 
@@ -325,11 +355,11 @@ class PlaywrightSocialImageExtractor:
         seen_urls = set()
         
         try:
-            # Múltiplas estratégias de busca
+            # Estratégias alternativas que não requerem login
             search_strategies = [
-                f"https://www.instagram.com/explore/tags/{query.replace(' ', '').replace('#', '')}/",
-                f"https://www.instagram.com/explore/search/keyword/?q={query}",
-                f"https://www.instagram.com/{query.replace(' ', '')}/"
+                f"https://www.picuki.com/tag/{query.replace(' ', '').replace('#', '')}",
+                f"https://imginn.com/tag/{query.replace(' ', '').replace('#', '')}",
+                f"https://storiesig.net/hashtag/{query.replace(' ', '').replace('#', '')}"
             ]
             
             for strategy_url in search_strategies:
@@ -732,25 +762,36 @@ class PlaywrightSocialImageExtractor:
         
         for i, url in enumerate(urls):
             try:
+                # Valida URL antes de tentar capturar
+                if not url or not url.strip() or not url.startswith(('http://', 'https://')):
+                    logger.warning(f"⚠️ URL inválida pulada: {url}")
+                    continue
+                
                 page = await self.context.new_page()
-                await page.goto(url, timeout=self.config['timeout'])
+                await page.goto(url, timeout=self.config['timeout'], wait_until='domcontentloaded')
                 await page.wait_for_timeout(2000)
                 
-                screenshot_path = screenshots_dir / f"screenshot_{i+1:03d}.png"
+                screenshot_path = screenshots_dir / f"viral_screenshot_{i+1:03d}.png"
                 await page.screenshot(path=str(screenshot_path), full_page=True)
                 
                 screenshots.append({
                     'url': url,
                     'screenshot_path': str(screenshot_path),
                     'index': i + 1,
-                    'captured_at': datetime.now().isoformat()
+                    'captured_at': datetime.now().isoformat(),
+                    'success': True
                 })
                 
                 await page.close()
-                logger.info(f"📸 Screenshot {i+1} capturado: {url}")
+                logger.info(f"📸 Screenshot viral {i+1} capturado: {url[:50]}...")
                 
             except Exception as e:
                 logger.error(f"❌ Erro ao capturar screenshot de {url}: {e}")
+                screenshots.append({
+                    'url': url,
+                    'error': str(e),
+                    'success': False
+                })
                 continue
         
         return screenshots

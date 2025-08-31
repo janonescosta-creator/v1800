@@ -25,6 +25,20 @@ from services.trendfinder_client import trendfinder_client
 from services.supadata_mcp_client import supadata_client
 # from services.visual_content_capture import visual_content_capture  # Removido - não utilizado
 
+# Importa o serviço de captura de conteúdo visual, se existir
+try:
+    from services.visual_content_capture import visual_content_capture
+    visual_content_capture_available = True
+except ImportError:
+    logger.warning("⚠️ Módulo 'visual_content_capture' não encontrado. Funcionalidades visuais estarão desabilitadas.")
+    visual_content_capture_available = False
+    # Cria um mock para evitar erros caso o módulo não exista
+    class MockVisualContentCapture:
+        def select_top_urls(self, *args, **kwargs): return []
+        async def capture_screenshots(self, *args, **kwargs): return {"success": False, "error": "Visual content capture module not available"}
+    visual_content_capture = MockVisualContentCapture()
+
+
 logger = logging.getLogger(__name__)
 
 class MassiveDataCollector:
@@ -55,9 +69,9 @@ class MassiveDataCollector:
                 query_parts.append(nicho)
             if publico:
                 query_parts.append(publico)
-            
+
             query = " ".join(query_parts) if query_parts else "análise de mercado"
-            
+
             # Contexto da análise
             context = {
                 "produto": produto,
@@ -65,7 +79,7 @@ class MassiveDataCollector:
                 "publico": publico,
                 "session_id": session_id
             }
-            
+
             # Chama o método assíncrono de forma síncrona
             import asyncio
             loop = asyncio.new_event_loop()
@@ -76,7 +90,7 @@ class MassiveDataCollector:
                 )
             finally:
                 loop.close()
-                
+
         except Exception as e:
             logger.error(f"Erro na coleta de dados: {e}")
             return {"error": str(e), "success": False}
@@ -189,7 +203,7 @@ class MassiveDataCollector:
             try:
                 # Usa método existente do social_media_extractor
                 social_results = social_media_extractor.search_all_platforms(query, 15)
-                
+
                 # Adapta formato para compatibilidade
                 if social_results.get("success"):
                     social_results = {
@@ -214,12 +228,17 @@ class MassiveDataCollector:
                     "all_platforms_data": {"platforms": {}},
                     "total_posts": 0
                 }
-                
+
             massive_data["social_media_data"] = social_results
 
             # FASE 5: Seleção de URLs Relevantes
             logger.info("🎯 FASE 5: Selecionando URLs mais relevantes...")
-            selected_urls = visual_content_capture.select_top_urls(web_results, max_urls=8)
+            selected_urls = []
+            if visual_content_capture_available:
+                selected_urls = visual_content_capture.select_top_urls(web_results, max_urls=8)
+            else:
+                logger.warning("⚠️ Visual content capture não disponível, pulando seleção de URLs.")
+
 
             # FASE 6: Captura de Screenshots
             logger.info("📸 FASE 6: Capturando screenshots das URLs selecionadas...")
@@ -235,8 +254,8 @@ class MassiveDataCollector:
                     massive_data["visual_content"] = {"success": False, "error": str(capture_error)}
                     massive_data["statistics"]["screenshot_count"] = 0
             else:
-                logger.warning("⚠️ Nenhuma URL selecionada para screenshots")
-                massive_data["visual_content"] = {"success": False, "error": "Nenhuma URL disponível"}
+                logger.info("ℹ️ Nenhuma URL selecionada ou visual capture indisponível, pulando screenshots.")
+                massive_data["visual_content"] = {"success": False, "error": "Nenhuma URL disponível ou módulo visual indisponível"}
 
             # FASE 7: Consolidação e Processamento
             logger.info("🔗 FASE 7: Consolidando dados coletados...")
@@ -253,7 +272,7 @@ class MassiveDataCollector:
             # Processa resultados sociais existentes - CORRIGIDO
             if social_results.get("all_platforms_data"):
                 platforms = social_results["all_platforms_data"].get("platforms", {})
-                
+
                 # Verifica se platforms é um dict ou list
                 if isinstance(platforms, dict):
                     # Se é dict, itera pelos items
@@ -327,7 +346,7 @@ class MassiveDataCollector:
         try:
             platforms = social_results.get("all_platforms_data", {}).get("platforms", {})
             total_count = 0
-            
+
             if isinstance(platforms, dict):
                 for data in platforms.values():
                     if isinstance(data, dict) and "results" in data:
@@ -340,7 +359,7 @@ class MassiveDataCollector:
                         elif "data" in platform_data and isinstance(platform_data["data"], dict):
                             results = platform_data["data"].get("results", [])
                             total_count += len(results)
-            
+
             return total_count
         except Exception as e:
             logger.error(f"Erro ao contar resultados sociais: {e}")
@@ -377,7 +396,7 @@ class MassiveDataCollector:
         """Coleta URLs dos dados de redes sociais"""
         try:
             platforms_data = social_data.get("all_platforms_data", {}).get("platforms", {})
-            
+
             # Trata tanto dict quanto list
             if isinstance(platforms_data, dict):
                 for platform_data in platforms_data.values():
@@ -391,7 +410,7 @@ class MassiveDataCollector:
                         results = platform_data.get("results", [])
                         if not results and "data" in platform_data:
                             results = platform_data["data"].get("results", [])
-                        
+
                         for post in results:
                             if post.get("url"):
                                 all_urls.add(post["url"])
@@ -467,7 +486,7 @@ class MassiveDataCollector:
                         results = platform_data.get("results", [])
                         if not results and "data" in platform_data:
                             results = platform_data["data"].get("results", [])
-                        
+
                         if results:
                             engagement_metrics["total_posts"] += len(results)
                             engagement_metrics["platforms_active"] += 1
@@ -597,38 +616,38 @@ class MassiveDataCollector:
     async def _generate_collection_report(self, massive_data: Dict[str, Any], session_id: str):
         """Gera um relatório de coleta com referências às imagens capturadas."""
         logger.info(f"📝 Gerando relatório de coleta para sessão: {session_id}")
-        
+
         # Cria diretório da sessão
         session_dir = f"analyses_data/{session_id}"
         os.makedirs(session_dir, exist_ok=True)
 
         report_data = {
             "session_id": session_id,
-            "query": massive_data["query"],
-            "collection_timestamp": massive_data["collection_started"],
+            "query": massive_data.get('query', 'N/A'),
+            "collection_timestamp": massive_data.get('collection_started', 'N/A'),
             "summary": {
-                "total_sources": massive_data["statistics"]["total_sources"],
-                "total_content_length": massive_data["statistics"]["total_content_length"],
-                "collection_duration": f"{massive_data['statistics']['collection_time']:.2f}s",
-                "screenshot_count": massive_data["statistics"]["screenshot_count"],
-                "api_rotations": massive_data["statistics"]["api_rotations"],
-                "sources_by_type": massive_data["statistics"]["sources_by_type"]
+                "total_sources": massive_data.get('statistics', {}).get('total_sources', 0),
+                "total_content_length": massive_data.get('statistics', {}).get('total_content_length', 0),
+                "collection_duration": f"{massive_data.get('statistics', {}).get('collection_time', 0):.2f}s",
+                "screenshot_count": massive_data.get('statistics', {}).get('screenshot_count', 0),
+                "api_rotations": massive_data.get('statistics', {}).get('api_rotations', {}),
+                "sources_by_type": massive_data.get('statistics', {}).get('sources_by_type', {})
             },
             "visual_references": [],
             "errors": []
         }
-        
+
         # Gera relatório em Markdown
         markdown_report = self._generate_markdown_report(massive_data, session_id)
-        
+
         # Salva relatório de coleta
         report_path = f"{session_dir}/relatorio_coleta.md"
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(markdown_report)
-        
+
         logger.info(f"✅ Relatório de coleta salvo: {report_path}")
 
-        if massive_data["visual_content"] and massive_data["visual_content"].get("success"):
+        if massive_data.get("visual_content") and massive_data["visual_content"].get("success"):
             report_data["visual_references"] = massive_data["visual_content"].get("screenshots", [])
             logger.info(f"🖼️ {len(report_data['visual_references'])} referências visuais incluídas no relatório.")
         else:
@@ -653,12 +672,12 @@ class MassiveDataCollector:
             logger.info("✅ Relatório de coleta gerado com sucesso.")
         except Exception as e:
             logger.error(f"❌ Erro ao salvar relatório de coleta: {e}")
-            
+
         return report_data
-    
+
     def _generate_markdown_report(self, massive_data: Dict[str, Any], session_id: str) -> str:
         """Gera relatório em formato Markdown"""
-        
+
         report = f"""# RELATÓRIO DE COLETA DE DADOS - ARQV30 Enhanced v3.0
 
 **Sessão:** {session_id}  
@@ -678,7 +697,7 @@ class MassiveDataCollector:
 
 ### Fontes por Tipo:
 """
-        
+
         # Adiciona estatísticas por tipo
         sources_by_type = massive_data.get('statistics', {}).get('sources_by_type', {})
         # Corrigido: Verifica se sources_by_type é um dicionário antes de iterar
@@ -688,9 +707,9 @@ class MassiveDataCollector:
         else:
             # Se não for um dicionário, tenta tratá-lo como lista ou outro tipo
             report += f"- **Dados de fontes:** {sources_by_type}\n"
-        
+
         report += "\n---\n\n"
-        
+
         # Adiciona dados de busca web
         web_data = massive_data.get('web_search_data', {})
         if web_data.get('all_results'):
@@ -700,18 +719,18 @@ class MassiveDataCollector:
                     provider = provider_result.get('provider', 'Unknown')
                     results_count = len(provider_result.get('results', []))
                     report += f"### {provider} ({results_count} resultados)\n\n"
-                    
+
                     for j, result in enumerate(provider_result.get('results', [])[:5], 1):
                         report += f"**{j}. {result.get('title', 'Sem título')}**  \n"
                         report += f"URL: {result.get('url', 'N/A')}  \n"
                         report += f"Resumo: {result.get('snippet', 'N/A')[:200]}...\n\n"
-        
+
         # Adiciona dados sociais
         social_data = massive_data.get('social_media_data', {})
         if social_data.get('success'):
             report += "## DADOS DE REDES SOCIAIS\n\n"
             platforms = social_data.get('all_platforms_data', {}).get('platforms', {})
-            
+
             # Corrigido: Verifica o tipo de platforms antes de iterar
             if isinstance(platforms, dict):
                 for platform, data in platforms.items():
@@ -732,7 +751,7 @@ class MassiveDataCollector:
                             for j, post in enumerate(results[:3], 1):
                                 title = post.get('title', post.get('text', post.get('caption', 'Post sem título')))
                                 report += f"**{j}.** {title[:100]}...\n\n"
-        
+
         # Adiciona screenshots
         visual_content = massive_data.get('visual_content', {})
         if visual_content.get('success'):
@@ -744,7 +763,7 @@ class MassiveDataCollector:
                     report += f"**URL:** {screenshot.get('url', 'N/A')}  \n"
                     report += f"**Título:** {screenshot.get('title', 'N/A')}  \n"
                     report += f"![Screenshot {i}]({screenshot.get('filepath', '')})  \n\n"
-        
+
         # Adiciona contexto da análise
         context = massive_data.get('context', {})
         if context:
@@ -752,9 +771,9 @@ class MassiveDataCollector:
             for key, value in context.items():
                 if value:
                     report += f"**{key.replace('_', ' ').title()}:** {value}  \n"
-        
+
         report += f"\n---\n\n*Relatório gerado automaticamente em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}*"
-        
+
         return report
 
     def _save_massive_json(self, massive_data: Dict[str, Any], session_id: str):

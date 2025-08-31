@@ -510,14 +510,18 @@ class ViralContentAnalyzer:
                 screenshots_dir = Path(f"analyses_data/files/{session_id}")
                 screenshots_dir.mkdir(parents=True, exist_ok=True)
 
-                for i, content in enumerate(viral_content, 1):
+                valid_content = []
+                for content in viral_content:
+                    url = content.get('url', '').strip()
+                    if url and url.startswith(('http://', 'https://')):
+                        valid_content.append(content)
+                    else:
+                        logger.warning(f"⚠️ URL inválida filtrada: '{url}'")
+
+                for i, content in enumerate(valid_content, 1):
                     try:
                         url = content.get('url', '')
                         platform = content.get('platform', 'web')
-
-                        if not url or not url.startswith(('http://', 'https://')):
-                            logger.warning(f"Skipping invalid URL: {url}")
-                            continue
 
                         logger.info(f"📸 Capturando screenshot {i}/{len(viral_content)}: {content.get('title', 'Sem título')}")
 
