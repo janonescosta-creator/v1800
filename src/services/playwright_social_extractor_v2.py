@@ -223,6 +223,59 @@ class PlaywrightSocialImageExtractor:
         except Exception as e:
             logger.error(f"⚠️ Erro ao fechar browser: {e}")
 
+    def _is_valid_image_url(self, url: str) -> bool:
+        """Valida se a URL é de uma imagem válida"""
+        if not url or not isinstance(url, str):
+            return False
+            
+        # Remove parâmetros e fragmentos para análise
+        clean_url = url.split('?')[0].split('#')[0]
+        
+        # Verifica se tem extensão de imagem
+        image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg']
+        has_extension = any(clean_url.lower().endswith(ext) for ext in image_extensions)
+        
+        # Verifica se é de CDN conhecido ou contém indicadores de imagem
+        image_indicators = [
+            'i.ytimg.com', 'pinimg.com', 'pbs.twimg.com', 'scontent',
+            'fbcdn', 'cdninstagram', 'tiktokcdn', 'image', 'photo',
+            'thumbnail', 'avatar', 'cover'
+        ]
+        has_indicator = any(indicator in url.lower() for indicator in image_indicators)
+        
+        # URL deve ter extensão ou indicador
+        return has_extension or has_indicator
+
+    def _estimate_image_quality(self, url: str, width: str = None, height: str = None) -> float:
+        """Estima a qualidade da imagem baseada na URL e dimensões"""
+        quality_score = 0.5  # Base score
+        
+        # Pontuação baseada na URL
+        if 'maxresdefault' in url or 'originals' in url:
+            quality_score += 0.4
+        elif 'hqdefault' in url or '1080' in url or '720' in url:
+            quality_score += 0.3
+        elif 'mqdefault' in url or '480' in url:
+            quality_score += 0.2
+        elif 'default' in url or '360' in url or '240' in url:
+            quality_score += 0.1
+            
+        # Pontuação baseada nas dimensões
+        try:
+            if width and height:
+                w, h = int(width), int(height)
+                pixels = w * h
+                if pixels >= 1920*1080:
+                    quality_score += 0.3
+                elif pixels >= 1280*720:
+                    quality_score += 0.2
+                elif pixels >= 640*480:
+                    quality_score += 0.1
+        except (ValueError, TypeError):
+            pass
+            
+        return min(quality_score, 1.0)
+
     async def extract_viral_content(
         self, 
         query: str, 
@@ -331,19 +384,21 @@ class PlaywrightSocialImageExtractor:
         query: str, 
         min_images: int
     ) -> Dict[str, Any]:
-        """Extrai imagens de uma plataforma específica"""
+        """Extrai imagens de uma plataforma específica - CORRIGIDO"""
         
-        extractors = {
-            'instagram': self._extract_instagram_images,
-            'facebook': self._extract_facebook_images,
-            'youtube': self._extract_youtube_images,
-            'tiktok': self._extract_tiktok_images,
-            'twitter': self._extract_twitter_images,
-            'pinterest': self._extract_pinterest_images
-        }
-        
-        if platform in extractors:
-            return await extractors[platform](query, min_images)
+        # MAPEAMENTO CORRETO DOS EXTRACTORS
+        if platform == 'instagram':
+            return await self._extract_instagram_images(query, min_images)
+        elif platform == 'facebook':
+            return await self._extract_facebook_images(query, min_images)
+        elif platform == 'youtube':
+            return await self._extract_youtube_images(query, min_images)
+        elif platform == 'tiktok':
+            return await self._extract_tiktok_images(query, min_images)
+        elif platform == 'twitter':
+            return await self._extract_twitter_images(query, min_images)
+        elif platform == 'pinterest':
+            return await self._extract_pinterest_images(query, min_images)
         else:
             logger.warning(f"⚠️ Plataforma não suportada: {platform}")
             return {'platform': platform, 'images': [], 'count': 0}
@@ -440,6 +495,76 @@ class PlaywrightSocialImageExtractor:
             logger.error(f"❌ Erro geral no Instagram: {e}")
             return {
                 'platform': 'instagram',
+                'query': query,
+                'images': images_data,
+                'count': len(images_data),
+                'error': str(e),
+                'success': False
+            }
+        finally:
+            await page.close()
+
+    async def _extract_facebook_images(self, query: str, min_images: int) -> Dict[str, Any]:
+        """Extrai imagens reais do Facebook"""
+        page = await self.context.new_page()
+        images_data = []
+        seen_urls = set()
+        
+        try:
+            # Facebook requer login para a maioria das buscas
+            search_url = f"https://www.facebook.com/search/photos/?q={query.replace(' ', '%20')}"
+            await page.goto(search_url, wait_until='networkidle', timeout=self.config['timeout'])
+            await page.wait_for_timeout(4000)
+            
+            for scroll in range(self.config['scroll_attempts']):
+                for selector in self.selectors['facebook']['images']:
+                    elements = await page.query_selector_all(selector)
+                    
+                    for element in elements:
+                        if len(images_data) >= self.config['max_images_per_platform']:
+                            break
+                            
+                        try:
+                            img_url = await element.get_attribute('src')
+                            
+                            if img_url and img_url not in seen_urls and ('scontent' in img_url or 'fbcdn' in img_url):
+                                seen_urls.add(img_url)
+                                
+                                alt_text = await element.get_attribute('alt') or ''
+                                
+                                image_info = {
+                                    'platform': 'facebook',
+                                    'url': img_url,
+                                    'alt_text': alt_text[:200],
+                                    'type': 'feed_image',
+                                    'estimated_quality': self._estimate_image_quality(img_url, None, None),
+                                    'extracted_at': datetime.now().isoformat()
+                                }
+                                
+                                images_data.append(image_info)
+                                logger.debug(f"✅ Imagem Facebook extraída: {img_url[:50]}...")
+                                
+                        except Exception as e:
+                            logger.debug(f"⚠️ Erro ao processar elemento Facebook: {e}")
+                            continue
+                
+                await page.evaluate('window.scrollBy(0, window.innerHeight * 2)')
+                await page.wait_for_timeout(self.config['scroll_delay'])
+            
+            logger.info(f"✅ Facebook: {len(images_data)} imagens extraídas")
+            
+            return {
+                'platform': 'facebook',
+                'query': query,
+                'images': images_data,
+                'count': len(images_data),
+                'success': len(images_data) >= min_images
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Erro no Facebook: {e}")
+            return {
+                'platform': 'facebook',
                 'query': query,
                 'images': images_data,
                 'count': len(images_data),
@@ -747,7 +872,8 @@ class PlaywrightSocialImageExtractor:
             return {
                 'platform': 'twitter',
                 'query': query,
-                'content': [],
+                'images': images_data,
+                'count': len(images_data),
                 'error': str(e),
                 'success': False
             }
@@ -795,6 +921,7 @@ class PlaywrightSocialImageExtractor:
                 continue
         
         return screenshots
+
 
 # Instância global
 playwright_social_extractor = PlaywrightSocialImageExtractor()
