@@ -19,6 +19,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+# Carrega variáveis de ambiente
+from dotenv import load_dotenv
+load_dotenv()
+
+INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -38,7 +45,7 @@ class RealViralImageExtractor:
     def __init__(self):
         self.session = None
         self.driver = None
-        self.images_dir = "/workspace/project/v100/viral_images"
+        self.images_dir = "/home/ubuntu/v1700/viral_images"
         self._ensure_directories()
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -97,10 +104,13 @@ class RealViralImageExtractor:
 
         all_images = []
 
-        # 1. Instagram REAL
-        instagram_images = await self._extract_real_instagram_images(query, session_id)
-        all_images.extend(instagram_images)
-        logger.info(f"📸 Instagram: {len(instagram_images)} imagens REAIS extraídas")
+        # 1. Instagram REAL com Selenium
+        if not self.driver:
+            self._setup_selenium()
+        if self.driver:
+            instagram_images = await self._extract_real_instagram_images_selenium(query, session_id)
+            all_images.extend(instagram_images)
+            logger.info(f"📸 Instagram (Selenium): {len(instagram_images)} imagens REAIS extraídas")
 
         # 2. YouTube REAL (aumentar para 17 vídeos para garantir 20+ imagens)
         youtube_images = await self._extract_real_youtube_thumbnails(query, session_id, max_videos=17)
@@ -775,4 +785,137 @@ class RealViralImageExtractor:
         return images
 
     # Instância global
-real_viral_extractor = RealViralImageExtractor()
+    async def _extract_real_instagram_images_selenium(self, query: str, session_id: str, max_images: int = 10) -> List[RealViralImage]:
+        """
+        Extrai imagens REAIS do Instagram usando Selenium para maior confiabilidade.
+        """
+        images = []
+        if not self.driver:
+            logger.error("❌ Selenium não está disponível para extração do Instagram.")
+            return images
+
+        try:
+            hashtags = self._get_real_hashtags(query)
+            if not hashtags:
+                logger.warning("⚠️ Nenhum hashtag encontrado para a consulta, não é possível buscar no Instagram.")
+                return images
+
+            hashtag = hashtags[0]
+            url = f"https://www.instagram.com/explore/tags/{hashtag}/"
+            logger.info(f"Navegando para a página de hashtag do Instagram: {url}")
+            if not await self._instagram_login():
+                logger.error("❌ Falha no login do Instagram. Não foi possível extrair imagens.")
+                return images
+            self.driver.get(url)
+            await asyncio.sleep(5) # Aguarda o carregamento inicial da página
+
+            # Rola a página para carregar mais imagens
+            for _ in range(3):
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                await asyncio.sleep(2)
+
+            # Extrai as URLs das imagens
+            img_elements = self.driver.find_elements(By.TAG_NAME, 'img')
+            img_urls = [img.get_attribute('src') for img in img_elements if img.get_attribute('src')]
+
+            for i, img_url in enumerate(img_urls[:max_images]):
+                local_path = await self._download_real_image(img_url, 'instagram', session_id, f"{hashtag}_selenium_{i}")
+                if local_path:
+                    viral_image = RealViralImage(
+                        platform="Instagram",
+                        image_url=img_url,
+                        local_path=local_path,
+                        title=f"Post viral #{hashtag} (Selenium)",
+                        engagement_score=self._calculate_engagement_score(hashtag),
+                        metadata={
+                            'hashtag': hashtag,
+                            'source_url': url,
+                            'extraction_method': 'Selenium',
+                            'extraction_time': time.time(),
+                            'query': query
+                        }
+                    )
+                    images.append(viral_image)
+
+        except Exception as e:
+            logger.error(f"❌ Erro na extração REAL do Instagram com Selenium: {e}")
+        
+        return images
+
+
+
+
+
+    async def _instagram_login(self):
+        """Realiza o login no Instagram usando Selenium."""
+        if not self.driver:
+            logger.error("❌ Selenium driver não está inicializado para login no Instagram.")
+            return False
+
+        if not INSTAGRAM_USERNAME or not INSTAGRAM_PASSWORD:
+            logger.warning("⚠️ Credenciais do Instagram não encontradas no .env. Pulando login.")
+            return False
+
+        try:
+            logger.info("Attempting Instagram login...")
+            self.driver.get("https://www.instagram.com/accounts/login/")
+            await asyncio.sleep(3) # Wait for page to load
+
+            # Accept cookies if prompted
+            try:
+                accept_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[text()=\"Accept all\"]"))
+                )
+                accept_button.click()
+                logger.info("Accepted Instagram cookies.")
+                await asyncio.sleep(2)
+            except Exception:
+                logger.info("No cookie consent dialog found or already accepted.")
+
+            username_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.NAME, "username"))
+            )
+            password_input = self.driver.find_element(By.NAME, "password")
+
+            username_input.send_keys(INSTAGRAM_USERNAME)
+            password_input.send_keys(INSTAGRAM_PASSWORD)
+
+            login_button = self.driver.find_element(By.XPATH, "//button[@type=\"submit\"]")
+            login_button.click()
+
+            await asyncio.sleep(5) # Wait for login to process
+
+            if "login" not in self.driver.current_url:
+                logger.info("✅ Instagram login successful.")
+                # Handle 'Save Info' prompt if it appears
+                try:
+                    not_now_button = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[text()=\"Not Now\"]"))
+                    )
+                    not_now_button.click()
+                    logger.info("Clicked 'Not Now' on save info prompt.")
+                    await asyncio.sleep(2)
+                except Exception:
+                    logger.info("No 'Save Info' prompt found.")
+
+                # Handle 'Turn on Notifications' prompt if it appears
+                try:
+                    not_now_button_notifications = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[text()=\"Not Now\"]"))
+                    )
+                    not_now_button_notifications.click()
+                    logger.info("Clicked 'Not Now' on notifications prompt.")
+                    await asyncio.sleep(2)
+                except Exception:
+                    logger.info("No 'Turn on Notifications' prompt found.")
+
+                return True
+            else:
+                logger.error("❌ Instagram login failed. Check credentials.")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Error during Instagram login: {e}")
+            return False
+
+

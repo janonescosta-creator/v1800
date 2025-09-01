@@ -338,11 +338,21 @@ class PlaywrightSocialImageExtractor:
             try:
                 logger.info(f"🎯 Extraindo imagens de {platform.upper()}")
                 
-                platform_data = await self._extract_platform_images(
-                    platform, 
-                    query, 
-                    min_images
-                )
+                if platform == 'instagram':
+                    platform_data = await self._extract_instagram_images(query, min_images)
+                elif platform == 'facebook':
+                    platform_data = await self._extract_facebook_images(query, min_images)
+                elif platform == 'youtube':
+                    platform_data = await self._extract_youtube_images(query, min_images)
+                elif platform == 'tiktok':
+                    platform_data = await self._extract_tiktok_images(query, min_images)
+                elif platform == 'twitter':
+                    platform_data = await self._extract_twitter_images(query, min_images)
+                elif platform == 'pinterest':
+                    platform_data = await self._extract_pinterest_images(query, min_images)
+                else:
+                    logger.warning(f"⚠️ Plataforma não suportada: {platform}")
+                    platform_data = {'platform': platform, 'images': [], 'count': 0}
                 
                 results['platforms_data'][platform] = platform_data
                 
@@ -378,30 +388,7 @@ class PlaywrightSocialImageExtractor:
         
         return results
 
-    async def _extract_platform_images(
-        self, 
-        platform: str, 
-        query: str, 
-        min_images: int
-    ) -> Dict[str, Any]:
-        """Extrai imagens de uma plataforma específica - CORRIGIDO"""
-        
-        # MAPEAMENTO CORRETO DOS EXTRACTORS
-        if platform == 'instagram':
-            return await self._extract_instagram_images(query, min_images)
-        elif platform == 'facebook':
-            return await self._extract_facebook_images(query, min_images)
-        elif platform == 'youtube':
-            return await self._extract_youtube_images(query, min_images)
-        elif platform == 'tiktok':
-            return await self._extract_tiktok_images(query, min_images)
-        elif platform == 'twitter':
-            return await self._extract_twitter_images(query, min_images)
-        elif platform == 'pinterest':
-            return await self._extract_pinterest_images(query, min_images)
-        else:
-            logger.warning(f"⚠️ Plataforma não suportada: {platform}")
-            return {'platform': platform, 'images': [], 'count': 0}
+
 
     async def _extract_instagram_images(self, query: str, min_images: int) -> Dict[str, Any]:
         """Extrai imagens reais do Instagram"""
@@ -411,75 +398,11 @@ class PlaywrightSocialImageExtractor:
         
         try:
             # Estratégias alternativas que não requerem login
-            search_strategies = [
-                f"https://www.picuki.com/tag/{query.replace(' ', '').replace('#', '')}",
-                f"https://imginn.com/tag/{query.replace(' ', '').replace('#', '')}",
-                f"https://storiesig.net/hashtag/{query.replace(' ', '').replace('#', '')}"
-            ]
+            # Instagram é difícil de extrair sem login. As estratégias abaixo geralmente falham.
+            # Para extração robusta, é necessário implementar login ou usar APIs pagas.
+            search_strategies = [] # Desabilitado devido a erros 403 e bloqueios
             
-            for strategy_url in search_strategies:
-                if len(images_data) >= min_images:
-                    break
-                    
-                try:
-                    logger.info(f"🔍 Tentando estratégia Instagram: {strategy_url}")
-                    await page.goto(strategy_url, wait_until='networkidle', timeout=self.config['timeout'])
-                    await page.wait_for_timeout(3000)
-                    
-                    # Scroll para carregar mais conteúdo
-                    for scroll in range(self.config['scroll_attempts']):
-                        # Tenta múltiplos seletores
-                        for selector_group in self.selectors['instagram']['images']:
-                            elements = await page.query_selector_all(selector_group)
-                            
-                            for element in elements:
-                                if len(images_data) >= self.config['max_images_per_platform']:
-                                    break
-                                    
-                                try:
-                                    # Extrai URL da imagem
-                                    img_url = await element.get_attribute('src') or await element.get_attribute('data-src')
-                                    
-                                    if not img_url:
-                                        srcset = await element.get_attribute('srcset')
-                                        if srcset:
-                                            # Pega a maior resolução do srcset
-                                            urls = srcset.split(',')
-                                            img_url = urls[-1].strip().split(' ')[0]
-                                    
-                                    if img_url and img_url not in seen_urls and self._is_valid_image_url(img_url):
-                                        seen_urls.add(img_url)
-                                        
-                                        # Extrai metadados
-                                        alt_text = await element.get_attribute('alt') or ''
-                                        width = await element.get_attribute('width')
-                                        height = await element.get_attribute('height')
-                                        
-                                        image_info = {
-                                            'platform': 'instagram',
-                                            'url': img_url,
-                                            'alt_text': alt_text[:200],
-                                            'width': width,
-                                            'height': height,
-                                            'type': 'post_image' if 'scontent' in img_url else 'profile_image',
-                                            'estimated_quality': self._estimate_image_quality(img_url, width, height),
-                                            'extracted_at': datetime.now().isoformat()
-                                        }
-                                        
-                                        images_data.append(image_info)
-                                        logger.debug(f"✅ Imagem Instagram extraída: {img_url[:50]}...")
-                                        
-                                except Exception as e:
-                                    logger.debug(f"⚠️ Erro ao processar elemento: {e}")
-                                    continue
-                        
-                        # Scroll down
-                        await page.evaluate('window.scrollBy(0, window.innerHeight)')
-                        await page.wait_for_timeout(self.config['scroll_delay'])
-                        
-                except Exception as e:
-                    logger.warning(f"⚠️ Erro na estratégia {strategy_url}: {e}")
-                    continue
+            logger.warning("⚠️ A extração de imagens do Instagram via scraping direto é altamente instável e propensa a bloqueios. Considere usar a API oficial do Instagram ou serviços de terceiros com autenticação.")
             
             logger.info(f"✅ Instagram: {len(images_data)} imagens extraídas")
             

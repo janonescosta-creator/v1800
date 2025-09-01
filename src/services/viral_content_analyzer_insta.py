@@ -294,7 +294,7 @@ class InstagramScreenshotAnalyzer:
             return 'INSTAGRAM_TRENDING'
         else:
             return 'INSTAGRAM_POPULAR'
-async def _capture_instagram_screenshots(
+    async def _capture_instagram_screenshots(
         self,
         viral_instagram: List[Dict[str, Any]],
         session_id: str,
@@ -455,7 +455,7 @@ async def _capture_instagram_screenshots(
 
         return screenshots
 
-    async def _handle_instagram_popups(self, page) -> None:
+    async def _handle_instagram_popups(self, page) -> None: # Corrigido
         """Lida com popups específicos do Instagram"""
         
         try:
