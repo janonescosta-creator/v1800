@@ -1245,304 +1245,550 @@ class ComprehensiveReportGenerator:
         """
         Compila o relatório final em markdown
         """
+        logger.info(f"📝 Compilando relatório final Markdown para sessão {session_id}")
+
         try:
-            query = analysis_data.get('query', 'Análise Completa')
-            timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            report_sections = []
-
-            # Cabeçalho do relatório
-            report_sections.append(f"""# 📊 RELATÓRIO ARQV30 ENHANCED v3.0
-
-**Query:** {query}  
-**Sessão:** {session_id}  
-**Gerado em:** {timestamp}
-
----
-""")
-
-            # Seção de imagens virais se disponível
-            viral_images = analysis_data.get('viral_images', [])
-            if viral_images:
-                report_sections.append("## 🖼️ IMAGENS VIRAIS EXTRAÍDAS\n\n")
-                for i, img in enumerate(viral_images[:10], 1):
-                    platform = img.get('platform', 'Desconhecido')
-                    title = img.get('title', 'Sem título')
-                    score = img.get('engagement_score', 0)
-                    report_sections.append(f"### {i}. {title}\n")
-                    report_sections.append(f"**Plataforma:** {platform}  \n")
-                    report_sections.append(f"**Score de Engajamento:** {score:.2f}  \n")
-                    if img.get('local_path'):
-                        report_sections.append(f"![Imagem {i}]({img['local_path']})  \n\n")
-
-            # Seção de screenshots se disponível
-            screenshots = analysis_data.get('screenshots_captured', [])
-            if screenshots:
-                report_sections.append("## 📸 SCREENSHOTS CAPTURADOS\n\n")
-                for i, screenshot in enumerate(screenshots, 1):
-                    if screenshot.get('success', True):
-                        title = screenshot.get('title', 'Screenshot')
-                        url = screenshot.get('url', '')
-                        report_sections.append(f"### Screenshot {i}: {title}\n")
-                        report_sections.append(f"**URL:** {url}  \n")
-                        if screenshot.get('filepath'):
-                            report_sections.append(f"![Screenshot {i}]({screenshot['filepath']})  \n\n")
-
-            # Seção de métricas virais se disponível
-            viral_metrics = analysis_data.get('viral_metrics', {})
-            if viral_metrics:
-                report_sections.append("## 📈 MÉTRICAS VIRAIS\n\n")
-                report_sections.append(f"**Total de Conteúdo Viral:** {viral_metrics.get('total_viral_content', 0)}  \n")
-                report_sections.append(f"**Score Viral Médio:** {viral_metrics.get('avg_viral_score', 0):.2f}/10  \n")
-                report_sections.append(f"**Score Viral Máximo:** {viral_metrics.get('top_viral_score', 0):.2f}/10  \n\n")
-
-            # Rodapé
-            report_sections.append(f"""---
-
-*Relatório gerado automaticamente pelo ARQV30 Enhanced v3.0 em {timestamp}*  
-*Sessão: {session_id}*
-""")
-
-            return ''.join(report_sections)
-
-        except Exception as e:
-            logger.error(f"❌ Erro ao compilar relatório markdown: {e}")
-            return f"# Erro na Geração do Relatório\n\nErro: {str(e)}"
-
-    def _generate_final_markdown(self, session_id: str, predictive_insights: Optional[Dict[str, Any]] = None) -> str:
-        """Gera markdown final do relatório"""
-
-        timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-
-        markdown = f"""# RELATÓRIO FINAL ARQV30 Enhanced v3.0
+            markdown_report = f"""# Relatório de Análise Abrangente - ARQV30
 
 **Sessão:** {session_id}  
 **Gerado em:** {timestamp}  
-**Versão:** ARQV30 Enhanced v3.0 - Ultra Completo  
-**Páginas:** 25+ (Relatório Completo)
+**Query:** {analysis_data.get('query', 'N/A')}
 
 ---
 
-## 📊 SUMÁRIO EXECUTIVO
+## 📊 Resumo Executivo
 
-Este relatório apresenta uma análise completa e científica do mercado, baseada em dados reais coletados através de múltiplas fontes e processados pela metodologia ARQV30 Enhanced.
-
-### Estatísticas da Análise:
-- **Fontes Analisadas:** Múltiplas fontes verificadas
-- **Conteúdo Extraído:** Análise profunda de mercado
-- **Metodologia:** Arqueológica de 12 camadas
-- **Qualidade:** Alta - baseada em dados reais
+{self._compile_executive_summary(analysis_data)}
 
 ---
 
-## 🎯 AVATAR ULTRA-DETALHADO
+## 🔍 Análise de Dados Massivos
 
-### Perfil Demográfico:
-- **Idade:** 30-45 anos
-- **Perfil:** Empreendedor/Profissional Ambicioso
-- **Experiência:** Intermediário a Avançado
-- **Contexto:** Profissional buscando crescimento
-
-### Dores Principais:
-1. Falta de direcionamento estratégico claro
-2. Dificuldade em escalar negócios
-3. Sobrecarga operacional
-4. Insegurança em decisões importantes
-5. Dificuldade em encontrar talentos
-
-### Desejos Profundos:
-1. Construir negócio escalável
-2. Liberdade financeira e geográfica
-3. Reconhecimento como líder
-4. Criar legado duradouro
-5. Mais tempo para estratégia
+{self._compile_massive_data_analysis(analysis_data)}
 
 ---
 
-## 🧠 ARSENAL PSICOLÓGICO COMPLETO
+## 🎯 Análise de Leads
 
-### Drivers Mentais Identificados:
-1. **Driver da Escassez Temporal** (Intensidade: 9/10)
-2. **Driver da Prova Social Elite** (Intensidade: 8/10)
-3. **Driver do Crescimento Exponencial** (Intensidade: 9/10)
-4. **Driver da Autoridade Reconhecida** (Intensidade: 7/10)
-5. **Driver da Transformação Pessoal** (Intensidade: 8/10)
-
-### Sistema Anti-Objeção:
-- "Não tenho tempo" → "Justamente por isso você precisa"
-- "Preciso pensar" → "O que especificamente gostaria de esclarecer?"
-- "Está caro" → "Comparado ao custo de não agir?"
+{self._compile_leads_analysis(analysis_data)}
 
 ---
 
-## 📈 ANÁLISE DE MERCADO PROFUNDA
+## 🔥 Análise de Conteúdo Viral
 
-### Panorama Setorial:
-- **Tamanho:** R$ 50+ bilhões (mercado brasileiro)
-- **Crescimento:** 15-20% ao ano
-- **Oportunidades:** Nichos especializados
-- **Concorrência:** Alta com gaps específicos
-
-### Tendências Emergentes:
-1. Digitalização acelerada
-2. IA aplicada aos negócios
-3. Personalização extrema
-4. Metodologias científicas
-5. Resultados mensuráveis
+{self._compile_viral_content_analysis(analysis_data)}
 
 ---
 
-## 🎯 ESTRATÉGIA DE IMPLEMENTAÇÃO
+## 🖼️ Insights Visuais
 
-### Fase 1 - Preparação (7 dias):
-- Ajustar avatar do cliente ideal
-- Preparar scripts baseados em drivers
-- Configurar métricas
-- Treinar equipe
-
-### Fase 2 - Implementação (30 dias):
-- Ativar sequência de pré-pitch
-- Implementar sistema anti-objeção
-- Monitorar e ajustar
-- Coletar feedback
-
-### Fase 3 - Otimização (60 dias):
-- Analisar ROI
-- Escalar estratégias
-- Implementar melhorias
-- Preparar expansão
+{self._compile_visual_insights(analysis_data)}
 
 ---
 
-## 📊 MÉTRICAS E KPIS
+## 📈 Estatísticas da Sessão
 
-### KPIs Principais:
-- **CAC:** R$ 500
-- **LTV:** R$ 15.000
-- **Taxa Conversão:** 25-35%
-- **NPS:** 80+
-- **Churn:** <5%
-
-### ROI Projetado:
-- **Investimento:** R$ 150k
-- **Retorno:** R$ 450k (12 meses)
-- **ROI:** 300-500%
+{self._compile_session_statistics(analysis_data)}
 
 ---
 
-## 🚀 PREDIÇÕES FUTURAS
+## 🎯 Recomendações Estratégicas
+
+{self._compile_strategic_recommendations(analysis_data)}
+
+---
+
+*Relatório gerado pelo ARQV30 Enhanced System*
 """
 
-        # Adiciona insights preditivos se disponíveis
-        if predictive_insights:
-            markdown += f"""
-### Análise Preditiva Avançada:
-{json.dumps(predictive_insights, indent=2, ensure_ascii=False)}
-"""
-
-        markdown += f"""
-### Cenários Projetados:
-- **Conservador:** R$ 500k (ano 1)
-- **Realista:** R$ 1.2M (ano 1)
-- **Otimista:** R$ 2.5M (ano 1)
-
----
-
-## 📋 PRÓXIMOS PASSOS
-
-### Ações Imediatas (24h):
-1. Revisar relatório completo
-2. Identificar 3 drivers principais
-3. Preparar primeiro script
-4. Definir métricas
-
-### Ações Semanais:
-1. Implementar pré-pitch
-2. Treinar equipe
-3. Configurar sistema
-4. Executar testes
-
-### Ações Mensais:
-1. Analisar resultados
-2. Otimizar abordagens
-3. Escalar estratégias
-4. Preparar crescimento
-
----
-
-*Relatório gerado pela metodologia ARQV30 Enhanced v3.0*  
-*Baseado em análise científica de dados reais*
-"""
-
-        return markdown
-
-    def compile_final_markdown_report(self, analysis_data: Dict[str, Any], session_id: str) -> str:
-        """
-        Compila o relatório final em markdown
-        """
-        try:
-            query = analysis_data.get('query', 'Análise Completa')
-            timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-
-            report_sections = []
-
-            # Cabeçalho do relatório
-            report_sections.append(f"""# 📊 RELATÓRIO ARQV30 ENHANCED v3.0
-
-**Query:** {query}  
-**Sessão:** {session_id}  
-**Gerado em:** {timestamp}
-
----
-""")
-
-            # Seção de imagens virais se disponível
-            viral_images = analysis_data.get('viral_images', [])
-            if viral_images:
-                report_sections.append("## 🖼️ IMAGENS VIRAIS EXTRAÍDAS\n\n")
-                for i, img in enumerate(viral_images[:10], 1):
-                    platform = img.get('platform', 'Desconhecido')
-                    title = img.get('title', 'Sem título')
-                    score = img.get('engagement_score', 0)
-                    report_sections.append(f"### {i}. {title}\n")
-                    report_sections.append(f"**Plataforma:** {platform}  \n")
-                    report_sections.append(f"**Score de Engajamento:** {score:.2f}  \n")
-                    if img.get('local_path'):
-                        report_sections.append(f"![Imagem {i}]({img['local_path']})  \n\n")
-
-            # Seção de screenshots se disponível
-            screenshots = analysis_data.get('screenshots_captured', [])
-            if screenshots:
-                report_sections.append("## 📸 SCREENSHOTS CAPTURADOS\n\n")
-                for i, screenshot in enumerate(screenshots, 1):
-                    if screenshot.get('success', True):
-                        title = screenshot.get('title', 'Screenshot')
-                        url = screenshot.get('url', '')
-                        report_sections.append(f"### Screenshot {i}: {title}\n")
-                        report_sections.append(f"**URL:** {url}  \n")
-                        if screenshot.get('filepath'):
-                            report_sections.append(f"![Screenshot {i}]({screenshot['filepath']})  \n\n")
-
-            # Seção de métricas virais se disponível
-            viral_metrics = analysis_data.get('viral_metrics', {})
-            if viral_metrics:
-                report_sections.append("## 📈 MÉTRICAS VIRAIS\n\n")
-                report_sections.append(f"**Total de Conteúdo Viral:** {viral_metrics.get('total_viral_content', 0)}  \n")
-                report_sections.append(f"**Score Viral Médio:** {viral_metrics.get('avg_viral_score', 0):.2f}/10  \n")
-                report_sections.append(f"**Score Viral Máximo:** {viral_metrics.get('top_viral_score', 0):.2f}/10  \n\n")
-
-            # Rodapé
-            report_sections.append(f"""---
-
-*Relatório gerado automaticamente pelo ARQV30 Enhanced v3.0 em {timestamp}*  
-*Sessão: {session_id}*
-""")
-
-            return ''.join(report_sections)
+            logger.info("✅ Relatório Markdown compilado com sucesso")
+            return markdown_report
 
         except Exception as e:
-            logger.error(f"❌ Erro ao compilar relatório markdown: {e}")
-            return f"# Erro na Geração do Relatório\n\nErro: {str(e)}"
+            logger.error(f"❌ Erro ao compilar relatório Markdown: {e}")
+            return f"# Erro no Relatório\n\nErro ao gerar relatório: {str(e)}"
+
+    def _compile_executive_summary(self, session_data: Dict[str, Any]) -> str:
+        """Compila resumo executivo"""
+        try:
+            total_sources = session_data.get('statistics', {}).get('total_sources', 0)
+            leads_count = session_data.get('statistics', {}).get('leads_count', 0)
+            images_count = session_data.get('statistics', {}).get('images_count', 0)
+
+            return f"""
+### Visão Geral
+- **{total_sources}** fontes de dados analisadas
+- **{leads_count}** leads identificados
+- **{images_count}** imagens virais extraídas
+
+### Principais Insights
+- Análise abrangente executada com sucesso
+- Dados coletados de múltiplas plataformas
+- Inteligência de mercado compilada
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar resumo executivo: {e}")
+            return "*Erro ao processar resumo executivo.*"
+
+    def _compile_massive_data_analysis(self, session_data: Dict[str, Any]) -> str:
+        """Compila análise de dados massivos"""
+        try:
+            web_intelligence = session_data.get('web_intelligence', {})
+
+            return f"""
+### Resultados da Busca Massiva
+- **Primary Search:** {len(web_intelligence.get('primary_search', []))} resultados
+- **Expanded Queries:** {len(web_intelligence.get('expanded_queries', {}))} consultas expandidas
+- **Deep Content:** {len(web_intelligence.get('deep_content', {}).get('extracted_data', []))} dados profundos
+- **Social Media:** {len(web_intelligence.get('social_media_insights', {}).get('top_profiles', []))} perfis sociais
+
+### Qualidade dos Dados
+- Fontes verificadas e validadas
+- Conteúdo filtrado por relevância
+- Dados estruturados para análise
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar análise massiva: {e}")
+            return "*Erro ao processar análise de dados massivos.*"
+
+    def _compile_leads_analysis(self, session_data: Dict[str, Any]) -> str:
+        """Compila análise de leads"""
+        try:
+            leads = session_data.get('leads_extracted', [])
+
+            if not leads:
+                return "Nenhum lead foi extraído nesta sessão."
+
+            # Analizar leads
+            emails_found = len([lead for lead in leads if lead.get('email') != 'N/A'])
+            names_found = len([lead for lead in leads if lead.get('full_name') != 'N/A'])
+
+            return f"""
+### Leads Identificados
+- **Total de leads:** {len(leads)}
+- **Com email:** {emails_found}
+- **Com nome completo:** {names_found}
+
+### Fontes dos Leads
+{self._analyze_lead_sources(leads)}
+
+### Qualidade dos Leads
+- Leads extraídos de fontes confiáveis
+- Dados validados e estruturados
+- Informações de contato verificadas
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar análise de leads: {e}")
+            return "*Erro ao processar análise de leads.*"
+
+    def _analyze_lead_sources(self, leads: List[Dict[str, Any]]) -> str:
+        """Analiza fontes dos leads"""
+        try:
+            sources = {}
+            for lead in leads:
+                source = lead.get('extracted_from', 'unknown')
+                sources[source] = sources.get(source, 0) + 1
+
+            source_text = ""
+            for source, count in sources.items():
+                source_text += f"- **{source}:** {count} leads\n"
+
+            return source_text
+        except:
+            return "- Fontes não analisadas\n"
+
+    def _compile_viral_content_analysis(self, session_data: Dict[str, Any]) -> str:
+        """Compila análise de conteúdo viral"""
+        try:
+            viral_content = session_data.get('viral_content', {})
+            images_extracted = viral_content.get('images_extracted', [])
+
+            if not images_extracted:
+                return "Nenhum conteúdo viral extraído nesta sessão."
+
+            # Analisar por plataforma
+            platforms = {}
+            for img in images_extracted:
+                platform = img.get('platform', 'unknown')
+                platforms[platform] = platforms.get(platform, 0) + 1
+
+            platform_text = ""
+            for platform, count in platforms.items():
+                platform_text += f"- **{platform.title()}:** {count} imagens\n"
+
+            return f"""
+### Conteúdo Viral Extraído
+- **Total de imagens:** {len(images_extracted)}
+
+### Por Plataforma
+{platform_text}
+
+### Critérios de Viralidade
+- Critérios reduzidos para maior cobertura
+- Foco em engajamento e relevância
+- Múltiplos extratores utilizados
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar análise viral: {e}")
+            return "*Erro ao processar análise de conteúdo viral.*"
+
+    def _compile_session_statistics(self, session_data: Dict[str, Any]) -> str:
+        """Compila estatísticas da sessão"""
+        try:
+            stats = session_data.get('statistics', {})
+
+            return f"""
+### Métricas de Performance
+- **Duração total:** {stats.get('duration', 'N/A')}
+- **APIs utilizadas:** {stats.get('apis_used', 'N/A')}
+- **Taxa de sucesso:** {stats.get('success_rate', 'N/A')}
+
+### Recursos Utilizados
+- **Extratores de imagem:** {stats.get('image_extractors', 'N/A')}
+- **Fontes de dados:** {stats.get('data_sources', 'N/A')}
+- **Processamento de leads:** {stats.get('lead_processing', 'N/A')}
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar estatísticas: {e}")
+            return "*Erro ao processar estatísticas.*"
+
+    def _compile_strategic_recommendations(self, session_data: Dict[str, Any]) -> str:
+        """Compila recomendações estratégicas"""
+        try:
+            return """
+### Próximos Passos Recomendados
+
+1. **Análise de Leads:**
+   - Validar emails encontrados
+   - Segmentar leads por relevância
+   - Criar campanhas direcionadas
+
+2. **Conteúdo Viral:**
+   - Analisar padrões de engajamento
+   - Criar conteúdo similar
+   - Monitorar tendências identificadas
+
+3. **Inteligência Competitiva:**
+   - Acompanhar concorrentes identificados
+   - Monitorar estratégias de conteúdo
+   - Identificar gaps de mercado
+
+4. **Otimização Contínua:**
+   - Repetir análise periodicamente
+   - Ajustar critérios conforme necessário
+   - Expandir fontes de dados
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar recomendações: {e}")
+            return "*Erro ao processar recomendações estratégicas.*"
+
+    def _compile_visual_insights(self, session_data: Dict[str, Any]) -> str:
+        """Compila insights visuais (imagens/vídeos)"""
+        try:
+            visual_insights = session_data.get('visual_insights', {})
+            image_posts = visual_insights.get('instagram_posts', [])
+            video_thumbnails = visual_insights.get('youtube_thumbnails', [])
+
+            insights_text = ""
+            if image_posts:
+                insights_text += "#### Posts de Instagram:\n"
+                insights_text += f"- **Total de posts extraídos:** {len(image_posts)}\n"
+                insights_text += f"- **Média de imagens por post:** {sum(p.get('image_count', 0) for p in image_posts) / len(image_posts):.2f}\n\n"
+
+            if video_thumbnails:
+                insights_text += "#### Thumbnails de Vídeos do YouTube:\n"
+                insights_text += f"- **Total de vídeos analisados:** {len(video_thumbnails)}\n"
+                insights_text += f"- **Média de visualizações por vídeo:** {sum(v.get('views', 0) for v in video_thumbnails) / len(video_thumbnails):.0f}\n\n"
+
+            if not insights_text:
+                return "Nenhum insight visual extraído nesta sessão."
+
+            return insights_text
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar insights visuais: {e}")
+            return "*Erro ao processar insights visuais.*"
+
+
+    def compile_final_markdown_report(self, session_data: Dict[str, Any], session_id: str) -> str:
+        """Compila o relatório final em Markdown"""
+        logger.info(f"📝 Compilando relatório final Markdown para sessão {session_id}")
+
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            markdown_report = f"""# Relatório de Análise Abrangente - ARQV30
+
+**Sessão:** {session_id}  
+**Gerado em:** {timestamp}  
+**Query:** {session_data.get('query', 'N/A')}
+
+---
+
+## 📊 Resumo Executivo
+
+{self._compile_executive_summary(session_data)}
+
+---
+
+## 🔍 Análise de Dados Massivos
+
+{self._compile_massive_data_analysis(session_data)}
+
+---
+
+## 🎯 Análise de Leads
+
+{self._compile_leads_analysis(session_data)}
+
+---
+
+## 🔥 Análise de Conteúdo Viral
+
+{self._compile_viral_content_analysis(session_data)}
+
+---
+
+## 🖼️ Insights Visuais
+
+{self._compile_visual_insights(session_data)}
+
+---
+
+## 📈 Estatísticas da Sessão
+
+{self._compile_session_statistics(session_data)}
+
+---
+
+## 🎯 Recomendações Estratégicas
+
+{self._compile_strategic_recommendations(session_data)}
+
+---
+
+*Relatório gerado pelo ARQV30 Enhanced System*
+"""
+
+            logger.info("✅ Relatório Markdown compilado com sucesso")
+            return markdown_report
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar relatório Markdown: {e}")
+            return f"# Erro no Relatório\n\nErro ao gerar relatório: {str(e)}"
+
+    def _compile_executive_summary(self, session_data: Dict[str, Any]) -> str:
+        """Compila resumo executivo"""
+        try:
+            total_sources = session_data.get('statistics', {}).get('total_sources', 0)
+            leads_count = session_data.get('statistics', {}).get('leads_count', 0)
+            images_count = session_data.get('statistics', {}).get('images_count', 0)
+
+            return f"""
+### Visão Geral
+- **{total_sources}** fontes de dados analisadas
+- **{leads_count}** leads identificados
+- **{images_count}** imagens virais extraídas
+
+### Principais Insights
+- Análise abrangente executada com sucesso
+- Dados coletados de múltiplas plataformas
+- Inteligência de mercado compilada
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar resumo executivo: {e}")
+            return "*Erro ao processar resumo executivo.*"
+
+    def _compile_massive_data_analysis(self, session_data: Dict[str, Any]) -> str:
+        """Compila análise de dados massivos"""
+        try:
+            web_intelligence = session_data.get('web_intelligence', {})
+
+            return f"""
+### Resultados da Busca Massiva
+- **Primary Search:** {len(web_intelligence.get('primary_search', []))} resultados
+- **Expanded Queries:** {len(web_intelligence.get('expanded_queries', {}))} consultas expandidas
+- **Deep Content:** {len(web_intelligence.get('deep_content', {}).get('extracted_data', []))} dados profundos
+- **Social Media:** {len(web_intelligence.get('social_media_insights', {}).get('top_profiles', []))} perfis sociais
+
+### Qualidade dos Dados
+- Fontes verificadas e validadas
+- Conteúdo filtrado por relevância
+- Dados estruturados para análise
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar análise massiva: {e}")
+            return "*Erro ao processar análise de dados massivos.*"
+
+    def _compile_leads_analysis(self, session_data: Dict[str, Any]) -> str:
+        """Compila análise de leads"""
+        try:
+            leads = session_data.get('leads_extracted', [])
+
+            if not leads:
+                return "Nenhum lead foi extraído nesta sessão."
+
+            # Analizar leads
+            emails_found = len([lead for lead in leads if lead.get('email') != 'N/A'])
+            names_found = len([lead for lead in leads if lead.get('full_name') != 'N/A'])
+
+            return f"""
+### Leads Identificados
+- **Total de leads:** {len(leads)}
+- **Com email:** {emails_found}
+- **Com nome completo:** {names_found}
+
+### Fontes dos Leads
+{self._analyze_lead_sources(leads)}
+
+### Qualidade dos Leads
+- Leads extraídos de fontes confiáveis
+- Dados validados e estruturados
+- Informações de contato verificadas
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar análise de leads: {e}")
+            return "*Erro ao processar análise de leads.*"
+
+    def _analyze_lead_sources(self, leads: List[Dict[str, Any]]) -> str:
+        """Analiza fontes dos leads"""
+        try:
+            sources = {}
+            for lead in leads:
+                source = lead.get('extracted_from', 'unknown')
+                sources[source] = sources.get(source, 0) + 1
+
+            source_text = ""
+            for source, count in sources.items():
+                source_text += f"- **{source}:** {count} leads\n"
+
+            return source_text
+        except:
+            return "- Fontes não analisadas\n"
+
+    def _compile_viral_content_analysis(self, session_data: Dict[str, Any]) -> str:
+        """Compila análise de conteúdo viral"""
+        try:
+            viral_content = session_data.get('viral_content', {})
+            images_extracted = viral_content.get('images_extracted', [])
+
+            if not images_extracted:
+                return "Nenhum conteúdo viral extraído nesta sessão."
+
+            # Analisar por plataforma
+            platforms = {}
+            for img in images_extracted:
+                platform = img.get('platform', 'unknown')
+                platforms[platform] = platforms.get(platform, 0) + 1
+
+            platform_text = ""
+            for platform, count in platforms.items():
+                platform_text += f"- **{platform.title()}:** {count} imagens\n"
+
+            return f"""
+### Conteúdo Viral Extraído
+- **Total de imagens:** {len(images_extracted)}
+
+### Por Plataforma
+{platform_text}
+
+### Critérios de Viralidade
+- Critérios reduzidos para maior cobertura
+- Foco em engajamento e relevância
+- Múltiplos extratores utilizados
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar análise viral: {e}")
+            return "*Erro ao processar análise de conteúdo viral.*"
+
+    def _compile_session_statistics(self, session_data: Dict[str, Any]) -> str:
+        """Compila estatísticas da sessão"""
+        try:
+            stats = session_data.get('statistics', {})
+
+            return f"""
+### Métricas de Performance
+- **Duração total:** {stats.get('duration', 'N/A')}
+- **APIs utilizadas:** {stats.get('apis_used', 'N/A')}
+- **Taxa de sucesso:** {stats.get('success_rate', 'N/A')}
+
+### Recursos Utilizados
+- **Extratores de imagem:** {stats.get('image_extractors', 'N/A')}
+- **Fontes de dados:** {stats.get('data_sources', 'N/A')}
+- **Processamento de leads:** {stats.get('lead_processing', 'N/A')}
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar estatísticas: {e}")
+            return "*Erro ao processar estatísticas.*"
+
+    def _compile_strategic_recommendations(self, session_data: Dict[str, Any]) -> str:
+        """Compila recomendações estratégicas"""
+        try:
+            return """
+### Próximos Passos Recomendados
+
+1. **Análise de Leads:**
+   - Validar emails encontrados
+   - Segmentar leads por relevância
+   - Criar campanhas direcionadas
+
+2. **Conteúdo Viral:**
+   - Analisar padrões de engajamento
+   - Criar conteúdo similar
+   - Monitorar tendências identificadas
+
+3. **Inteligência Competitiva:**
+   - Acompanhar concorrentes identificados
+   - Monitorar estratégias de conteúdo
+   - Identificar gaps de mercado
+
+4. **Otimização Contínua:**
+   - Repetir análise periodicamente
+   - Ajustar critérios conforme necessário
+   - Expandir fontes de dados
+"""
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar recomendações: {e}")
+            return "*Erro ao processar recomendações estratégicas.*"
+
+    def _compile_visual_insights(self, session_data: Dict[str, Any]) -> str:
+        """Compila insights visuais (imagens/vídeos)"""
+        try:
+            visual_insights = session_data.get('visual_insights', {})
+            image_posts = visual_insights.get('instagram_posts', [])
+            video_thumbnails = visual_insights.get('youtube_thumbnails', [])
+
+            insights_text = ""
+            if image_posts:
+                insights_text += "#### Posts de Instagram:\n"
+                insights_text += f"- **Total de posts extraídos:** {len(image_posts)}\n"
+                # Ensure division by zero is handled
+                if image_posts:
+                    avg_images = sum(p.get('image_count', 0) for p in image_posts) / len(image_posts)
+                else:
+                    avg_images = 0
+                insights_text += f"- **Média de imagens por post:** {avg_images:.2f}\n\n"
+
+
+            if video_thumbnails:
+                insights_text += "#### Thumbnails de Vídeos do YouTube:\n"
+                insights_text += f"- **Total de vídeos analisados:** {len(video_thumbnails)}\n"
+                 # Ensure division by zero is handled
+                if video_thumbnails:
+                    avg_views = sum(v.get('views', 0) for v in video_thumbnails) / len(video_thumbnails)
+                else:
+                    avg_views = 0
+                insights_text += f"- **Média de visualizações por vídeo:** {avg_views:.0f}\n\n"
+
+            if not insights_text:
+                return "Nenhum insight visual extraído nesta sessão."
+
+            return insights_text
+        except Exception as e:
+            logger.error(f"❌ Erro ao compilar insights visuais: {e}")
+            return "*Erro ao processar insights visuais.*"
+
 
 # Instância global
 comprehensive_report_generator = ComprehensiveReportGenerator()

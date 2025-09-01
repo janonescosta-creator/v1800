@@ -88,36 +88,39 @@ class EnhancedAPIRotationManager:
     def _load_api_configurations(self):
         """Carrega configurações de APIs do .env"""
         try:
-            # Qwen (OpenRouter) - Usar as chaves reais do .env
+            # OpenRouter - Usar as chaves reais do .env na ordem correta
             openrouter_keys = [
-                os.getenv('OPENROUTER_API_KEY_3'),
-                os.getenv('OPENROUTER_API_KEY_1'),
+                os.getenv('OPENROUTER_API_KEY'),
+                os.getenv('OPENROUTER_API_KEY_1'), 
                 os.getenv('OPENROUTER_API_KEY_2')
             ]
             
             for i, key in enumerate(openrouter_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['qwen'].append(APIEndpoint(
-                        name=f"qwen_{i}",
+                        name=f"openrouter_{i}",
                         api_key=key,
                         base_url='https://openrouter.ai/api/v1',
                         max_requests_per_minute=100
                     ))
+                    logger.info(f"✅ OpenRouter API {i} carregada")
             
             # Gemini - Usar as chaves reais do .env
             gemini_keys = [
+                os.getenv('GEMINI_API_KEY'),
                 os.getenv('GEMINI_API_KEY_1'),
                 os.getenv('GEMINI_API_KEY_2')
             ]
             
             for i, key in enumerate(gemini_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['gemini'].append(APIEndpoint(
                         name=f"gemini_{i}",
                         api_key=key,
                         base_url="https://generativelanguage.googleapis.com/v1beta",
                         max_requests_per_minute=60
                     ))
+                    logger.info(f"✅ Gemini API {i} carregada")
             
             # OpenAI
             openai_key = os.getenv('OPENAI_API_KEY')
@@ -141,63 +144,67 @@ class EnhancedAPIRotationManager:
             
             # Jina AI - Primário para busca
             jina_keys = [
-                os.getenv('JINA_API_KEY_1'),
-                os.getenv('JINA_API_KEY_2')
+                os.getenv('JINA_API_KEY'),
+                os.getenv('JINA_API_KEY_1')
             ]
             
             for i, key in enumerate(jina_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['jina'].append(APIEndpoint(
                         name=f"jina_{i}",
                         api_key=key,
                         base_url="https://r.jina.ai",
                         max_requests_per_minute=200
                     ))
+                    logger.info(f"✅ Jina API {i} carregada")
             
             # EXA - Fallback para Jina
             exa_keys = [
-                os.getenv('EXA_API_KEY_1'),
-                os.getenv('EXA_API_KEY_2')
+                os.getenv('EXA_API_KEY'),
+                os.getenv('EXA_API_KEY_1')
             ]
             
             for i, key in enumerate(exa_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['exa'].append(APIEndpoint(
                         name=f"exa_{i}",
                         api_key=key,
                         base_url="https://api.exa.ai",
                         max_requests_per_minute=100
                     ))
+                    logger.info(f"✅ EXA API {i} carregada")
             
             # Serper - Substituto secundário
             serper_keys = [
-                os.getenv('SERPER_API_KEY_1'),
-                os.getenv('SERPER_API_KEY_2')
+                os.getenv('SERPER_API_KEY'),
+                os.getenv('SERPER_API_KEY_1')
             ]
             
             for i, key in enumerate(serper_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['serper'].append(APIEndpoint(
                         name=f"serper_{i}",
                         api_key=key,
                         base_url="https://google.serper.dev",
                         max_requests_per_minute=100
                     ))
+                    logger.info(f"✅ Serper API {i} carregada")
             
             # Supadata - Para insights de redes sociais
             supadata_keys = [
-                os.getenv('SUPADATA_API_KEY_1'),
-                os.getenv('SUPADATA_API_KEY_2')
+                os.getenv('SUPADATA_API_KEY'),
+                os.getenv('SUPADATA_API_KEY_1')
             ]
             
             for i, key in enumerate(supadata_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['supadata'].append(APIEndpoint(
                         name=f"supadata_{i}",
                         api_key=key,
                         base_url=os.getenv('SUPADATA_API_URL', 'https://api.supadata.ai/v1'),
                         max_requests_per_minute=50
                     ))
+                    logger.info(f"✅ Supadata API {i} carregada")
             
             # Groq
             groq_keys = [
@@ -206,13 +213,14 @@ class EnhancedAPIRotationManager:
             ]
             
             for i, key in enumerate(groq_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['groq'].append(APIEndpoint(
                         name=f"groq_{i}",
                         api_key=key,
                         base_url="https://api.groq.com/openai/v1",
                         max_requests_per_minute=30
                     ))
+                    logger.info(f"✅ Groq API {i} carregada")
             
             # Tavily
             tavily_key = os.getenv('TAVILY_API_KEY')
@@ -226,18 +234,19 @@ class EnhancedAPIRotationManager:
             
             # Firecrawl
             firecrawl_keys = [
-                os.getenv('FIRECRAWL_API_KEY_1'),
-                os.getenv('FIRECRAWL_API_KEY_2')
+                os.getenv('FIRECRAWL_API_KEY'),
+                os.getenv('FIRECRAWL_API_KEY_1')
             ]
             
             for i, key in enumerate(firecrawl_keys, 1):
-                if key:
+                if key and key.strip():
                     self.apis['firecrawl'].append(APIEndpoint(
                         name=f"firecrawl_{i}",
                         api_key=key,
                         base_url="https://api.firecrawl.dev",
                         max_requests_per_minute=60
                     ))
+                    logger.info(f"✅ Firecrawl API {i} carregada")
             
             # ScrapingAnt
             scrapingant_key = os.getenv('SCRAPINGANT_API_KEY')

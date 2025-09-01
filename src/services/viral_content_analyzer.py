@@ -24,6 +24,14 @@ except ImportError:
     logger.warning("⚠️ Viral Image Extractor não disponível")
     HAS_VIRAL_IMAGE_EXTRACTOR = False
 
+# Import do analisador especializado do Instagram
+try:
+    from .viral_content_analyzer_insta import instagram_screenshot_analyzer
+    HAS_INSTAGRAM_ANALYZER = True
+except ImportError:
+    logger.warning("⚠️ Instagram Screenshot Analyzer não disponível")
+    HAS_INSTAGRAM_ANALYZER = False
+
 # Playwright extractor import (substitui Selenium)
 try:
     from services.playwright_social_extractor_v2 import playwright_social_extractor
@@ -299,8 +307,33 @@ class ViralContentAnalyzer:
             screenshots = await self._capture_viral_screenshots(viral_content, session_id)
             analysis_results['screenshots_captured'] = screenshots
 
-            # FASE 4: Extração de Imagens Virais
-            logger.info("🖼️ FASE 4: Extraindo imagens virais das redes sociais")
+            # FASE 4: Análise Especializada do Instagram
+            logger.info("📱 FASE 4: Análise especializada do Instagram")
+            
+            instagram_analysis = {}
+            if HAS_INSTAGRAM_ANALYZER:
+                try:
+                    # Executa análise especializada do Instagram
+                    instagram_analysis = await instagram_screenshot_analyzer.analyze_instagram_viral_content(
+                        search_results, session_id, max_screenshots=15
+                    )
+                    
+                    analysis_results['instagram_analysis'] = instagram_analysis
+                    
+                    # Integra screenshots do Instagram aos screenshots gerais
+                    instagram_screenshots = instagram_analysis.get('screenshots_captured', [])
+                    analysis_results['screenshots_captured'].extend(instagram_screenshots)
+                    
+                    logger.info(f"📱 Instagram: {instagram_analysis.get('total_instagram_posts', 0)} posts, {len(instagram_screenshots)} screenshots")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Erro na análise especializada do Instagram: {e}")
+                    analysis_results['instagram_analysis'] = {'error': str(e)}
+            else:
+                logger.warning("⚠️ Analisador especializado do Instagram não disponível")
+
+            # FASE 5: Extração de Imagens Virais
+            logger.info("🖼️ FASE 5: Extraindo imagens virais das redes sociais")
 
             viral_images = []
             if HAS_VIRAL_IMAGE_EXTRACTOR:
@@ -332,8 +365,8 @@ class ViralContentAnalyzer:
                 logger.warning("⚠️ Extrator de imagens virais REAIS não disponível")
                 analysis_results['viral_images'] = []
 
-            # FASE 5: Métricas e Insights
-            logger.info("📈 FASE 5: Calculando métricas virais")
+            # FASE 6: Métricas e Insights
+            logger.info("📈 FASE 6: Calculando métricas virais")
 
             viral_metrics = self._calculate_viral_metrics(viral_content)
             analysis_results['viral_metrics'] = viral_metrics
@@ -523,7 +556,7 @@ class ViralContentAnalyzer:
                         url = content.get('url', '')
                         platform = content.get('platform', 'web')
 
-                        logger.info(f"📸 Capturando screenshot {i}/{len(viral_content)}: {content.get('title', 'Sem título')}")
+                        logger.info(f"📸 Capturando screenshot {i}/{len(valid_content)}: {content.get('title', 'Sem título')}")
 
                         await page.goto(url, wait_until="domcontentloaded", timeout=60000) # Aumenta o timeout
 
@@ -755,23 +788,62 @@ class ViralContentAnalyzer:
 
             report += "\n"
 
+        # Seção específica do Instagram se disponível
+        instagram_analysis = analysis_results.get('instagram_analysis', {})
+        if instagram_analysis and not instagram_analysis.get('error'):
+            report += "---\n\n## ANÁLISE ESPECIALIZADA DO INSTAGRAM\n\n"
+            
+            instagram_metrics = instagram_analysis.get('engagement_metrics', {})
+            content_types = instagram_analysis.get('content_types', {})
+            
+            report += f"**Posts Instagram encontrados:** {instagram_analysis.get('total_instagram_posts', 0)}  \n"
+            report += f"**Posts virais identificados:** {instagram_analysis.get('viral_instagram_posts', 0)}  \n"
+            report += f"**Screenshots Instagram:** {len(instagram_analysis.get('screenshots_captured', []))}  \n\n"
+            
+            if instagram_metrics:
+                report += "### Métricas Instagram:\n"
+                report += f"- **Total de likes:** {instagram_metrics.get('total_likes', 0):,}  \n"
+                report += f"- **Total de comentários:** {instagram_metrics.get('total_comments', 0):,}  \n"
+                report += f"- **Taxa de engajamento:** {instagram_metrics.get('overall_engagement_rate', 0)}%  \n\n"
+            
+            if content_types:
+                report += "### Distribuição por Tipo de Conteúdo Instagram:\n"
+                report += f"- **Posts:** {content_types.get('posts', 0)}  \n"
+                report += f"- **Reels:** {content_types.get('reels', 0)}  \n"
+                report += f"- **Stories:** {content_types.get('stories', 0)}  \n"
+                report += f"- **IGTV:** {content_types.get('igtv', 0)}  \n\n"
+
         if screenshots:
             report += "---\n\n## EVIDÊNCIAS VISUAIS CAPTURADAS\n\n"
 
             for i, screenshot in enumerate(screenshots, 1):
                 report += f"### Screenshot {i}: {screenshot.get('title', 'Sem título')}\n\n**Plataforma:** {screenshot.get('platform', 'N/A').title()}  \n**Score Viral:** {screenshot.get('viral_score', 0):.2f}/10  \n**URL Original:** {screenshot.get('url', 'N/A')}  \n![Screenshot {i}]({screenshot.get('relative_path', '')})  \n\n"
 
-                metrics = screenshot.get('content_metrics', {})
-                if metrics:
-                    report += "**Métricas de Engajamento:**  \n"
-                    if metrics.get('views'):
-                        report += f"- Views: {metrics['views']:,}  \n"
-                    if metrics.get('likes'):
-                        report += f"- Likes: {metrics['likes']:,}  \n"
-                    if metrics.get('comments'):
-                        report += f"- Comentários: {metrics['comments']:,}  \n"
-                    if metrics.get('shares'):
-                        report += f"- Compartilhamentos: {metrics['shares']:,}  \n"
+                # Métricas específicas do Instagram se disponível
+                if screenshot.get('platform') == 'instagram' and screenshot.get('instagram_metrics'):
+                    instagram_metrics = screenshot.get('instagram_metrics', {})
+                    report += "**Métricas Instagram:**  \n"
+                    if instagram_metrics.get('likes'):
+                        report += f"- 👍 Likes: {instagram_metrics['likes']:,}  \n"
+                    if instagram_metrics.get('comments'):
+                        report += f"- 💬 Comentários: {instagram_metrics['comments']:,}  \n"
+                    if instagram_metrics.get('views'):
+                        report += f"- 👀 Views: {instagram_metrics['views']:,}  \n"
+                    if instagram_metrics.get('shares'):
+                        report += f"- 🔄 Shares: {instagram_metrics['shares']:,}  \n"
+                else:
+                    # Métricas gerais para outras plataformas
+                    metrics = screenshot.get('content_metrics', {})
+                    if metrics:
+                        report += "**Métricas de Engajamento:**  \n"
+                        if metrics.get('views'):
+                            report += f"- Views: {metrics['views']:,}  \n"
+                        if metrics.get('likes'):
+                            report += f"- Likes: {metrics['likes']:,}  \n"
+                        if metrics.get('comments'):
+                            report += f"- Comentários: {metrics['comments']:,}  \n"
+                        if metrics.get('shares'):
+                            report += f"- Compartilhamentos: {metrics['shares']:,}  \n"
 
                 report += "\n"
 
@@ -1088,6 +1160,117 @@ class ViralContentAnalyzer:
             })
 
         return padding_data
+
+    async def extract_viral_images_comprehensive(self, query: str, session_id: str) -> Dict[str, Any]:
+        """Extrai imagens virais de forma abrangente com múltiplos extratores NOVOS"""
+        logger.info(f"🔥 Iniciando extração viral MULTI-EXTRATOR para: {query}")
+
+        all_results = {
+            'session_id': session_id,
+            'query': query,
+            'extractors_used': [],
+            'total_images_extracted': 0,
+            'extraction_results': {},
+            'success': False,
+            'extracted_at': datetime.now().isoformat()
+        }
+
+        try:
+            # 1. Playwright Extractor NOVO
+            logger.info("🎭 Usando NOVO extrator Playwright...")
+            try:
+                from services.playwright_image_extractor import playwright_image_extractor
+                playwright_results = await playwright_image_extractor.extract_all_platforms(query, session_id)
+                all_results['extraction_results']['playwright'] = playwright_results
+                all_results['extractors_used'].append('playwright')
+
+                total_playwright = playwright_results.get('total_images', 0)
+                all_results['total_images_extracted'] += total_playwright
+                logger.info(f"✅ Playwright NOVO: {total_playwright} imagens extraídas")
+
+            except Exception as e:
+                logger.error(f"❌ Erro no extrator Playwright NOVO: {e}")
+                all_results['extraction_results']['playwright'] = {'error': str(e)}
+
+            # 2. Supadata Extractor NOVO
+            logger.info("🔥 Usando NOVO extrator Supadata...")
+            try:
+                from services.supadata_image_extractor import supadata_image_extractor
+                supadata_results = await supadata_image_extractor.extract_social_images(query, session_id)
+                all_results['extraction_results']['supadata'] = supadata_results
+                all_results['extractors_used'].append('supadata')
+
+                total_supadata = supadata_results.get('total_images', 0)
+                all_results['total_images_extracted'] += total_supadata
+                logger.info(f"✅ Supadata NOVO: {total_supadata} imagens extraídas")
+
+            except Exception as e:
+                logger.error(f"❌ Erro no extrator Supadata NOVO: {e}")
+                all_results['extraction_results']['supadata'] = {'error': str(e)}
+
+            # 3. Firecrawl Extractor NOVO
+            logger.info("🔥 Usando NOVO extrator Firecrawl...")
+            try:
+                from services.firecrawl_image_extractor import firecrawl_image_extractor
+                firecrawl_results = await firecrawl_image_extractor.extract_social_images(query, session_id)
+                all_results['extraction_results']['firecrawl'] = firecrawl_results
+                all_results['extractors_used'].append('firecrawl')
+
+                total_firecrawl = firecrawl_results.get('total_images', 0)
+                all_results['total_images_extracted'] += total_firecrawl
+                logger.info(f"✅ Firecrawl NOVO: {total_firecrawl} imagens extraídas")
+
+            except Exception as e:
+                logger.error(f"❌ Erro no extrator Firecrawl NOVO: {e}")
+                all_results['extraction_results']['firecrawl'] = {'error': str(e)}
+
+            # 4. Tavily Extractor NOVO
+            logger.info("🔍 Usando NOVO extrator Tavily...")
+            try:
+                from services.tavily_image_extractor import tavily_image_extractor
+                tavily_results = await tavily_image_extractor.extract_social_images(query, session_id)
+                all_results['extraction_results']['tavily'] = tavily_results
+                all_results['extractors_used'].append('tavily')
+
+                total_tavily = tavily_results.get('total_images', 0)
+                all_results['total_images_extracted'] += total_tavily
+                logger.info(f"✅ Tavily NOVO: {total_tavily} imagens extraídas")
+
+            except Exception as e:
+                logger.error(f"❌ Erro no extrator Tavily NOVO: {e}")
+                all_results['extraction_results']['tavily'] = {'error': str(e)}
+
+            # 5. Fallback: Extrator Original (se necessário)
+            if all_results['total_images_extracted'] < 30:  # Mínimo 30 imagens
+                logger.info("🔄 Usando fallback: extrator original...")
+                try:
+                    from services.real_viral_image_extractor import real_viral_image_extractor
+                    image_results = await real_viral_image_extractor.extract_viral_images_multi_platform(query, session_id)
+                    all_results['extraction_results']['fallback_original'] = image_results
+                    all_results['extractors_used'].append('fallback_original')
+
+                    if image_results.get('images_extracted'):
+                        all_results['total_images_extracted'] += len(image_results['images_extracted'])
+                        logger.info(f"✅ Fallback Original: {len(image_results['images_extracted'])} imagens extraídas")
+
+                except Exception as e:
+                    logger.error(f"❌ Erro no extrator fallback: {e}")
+                    all_results['extraction_results']['fallback_original'] = {'error': str(e)}
+
+            all_results['success'] = all_results['total_images_extracted'] > 0
+
+            # Log detalhado de resultados
+            logger.info(f"🎉 EXTRAÇÃO VIRAL CONCLUÍDA:")
+            logger.info(f"   📊 Total de imagens: {all_results['total_images_extracted']}")
+            logger.info(f"   🔧 Extratores usados: {', '.join(all_results['extractors_used'])}")
+            logger.info(f"   ✅ Sucesso: {all_results['success']}")
+
+            return all_results
+
+        except Exception as e:
+            logger.error(f"❌ Erro crítico na extração viral MULTI-EXTRATOR: {e}")
+            all_results['critical_error'] = str(e)
+            return all_results
 
 # Instância global
 viral_content_analyzer = ViralContentAnalyzer()
